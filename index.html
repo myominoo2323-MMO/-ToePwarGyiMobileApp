@@ -1,0 +1,843 @@
+<!doctype html><html lang="my"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1f4e78"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
+<title>Toe Pwar Gyi Business Order Tracking & Sales App v16</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f3f6fa;margin:0;color:#17212b}header{background:#1f4e78;color:#fff;padding:16px;text-align:center}nav{display:flex;gap:5px;overflow:auto;background:#fff;padding:8px;position:sticky;top:0}button{background:#1f4e78;color:#fff;border:0;border-radius:7px;padding:10px;margin:3px}main{max-width:1200px;margin:auto;padding:12px}.box{background:#fff;border-radius:10px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #0001}.hidden{display:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.metric{font-size:22px;font-weight:bold}input,select{width:100%;box-sizing:border-box;padding:9px;margin:4px 0 9px;border:1px solid #ccd4dc;border-radius:6px}.nav-category{width:auto;min-width:180px;margin:0;background:#1f4e78;color:#fff;border:0;font-weight:bold;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:7px;border-bottom:1px solid #ddd;text-align:left}th{background:#d9eaf7}.danger{background:#b42318}.success{background:#18794e}.scroll{overflow:auto}
+
+@media print{body>*:not(#printArea){display:none!important}#printArea{display:block!important}}
+#printArea{display:none}
+@media print{ @page{size:58mm auto;margin:2mm} .voucher-print{width:54mm;font-family:Arial,sans-serif;font-size:11px;color:#000}.voucher-print h2{font-size:16px;text-align:center;margin:0 0 5px}.voucher-print .line{border-top:1px dashed #000;margin:5px 0}.voucher-print table{width:100%;font-size:10px}.voucher-print td,.voucher-print th{padding:2px;border:0}.voucher-print .right{text-align:right}.voucher-print .center{text-align:center}}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>#liveMap{height:480px;border-radius:10px;z-index:1}.live-status{padding:8px;border-radius:7px;background:#f3f6fa;margin:5px 0}.online{color:#18794e;font-weight:bold}.offline{color:#b42318;font-weight:bold}.tracking{color:#1f4e78;font-weight:bold}.vehicle-card{border:1px solid #ddd;border-radius:8px;padding:9px;margin:6px 0;background:#fff;cursor:pointer}.vehicle-card:hover{background:#f3f7fb}.map-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:10px}@media(max-width:800px){.map-grid{grid-template-columns:1fr}#liveMap{height:380px}}</style></head>
+<body>
+<header>
+  <h2>📊 Toe Pwar Gyi business order tracking and Sales App</h2>
+  <div>ကုန်ပစ္စည်း • ရောင်းရငွေ • Customer • Order • Delivery • 5 Cars</div>
+</header>
+<div id="installBar" class="box" style="display:none;position:sticky;top:55px;z-index:20;text-align:center"><b>📲 App အဖြစ် Install လုပ်နိုင်ပါပြီ</b><br><button id="installAppBtn" class="success">Install App</button></div>
+
+<section id="cloudLogin" class="box" style="max-width:520px;margin:12px auto;">
+  <h3>☁️ Firebase Cloud Login</h3>
+  <div id="cloudAuthStatus">Not signed in</div>
+  <div class="grid">
+    <div><label>Email</label><input id="cloudEmail" type="email" placeholder="admin@example.com"></div>
+    <div><label>Password</label><input id="cloudPassword" type="password" placeholder="Password"></div>
+  </div>
+  <button class="success" onclick="cloudLogin()">🔐 Login</button>
+  <button onclick="cloudLogout()">Logout</button>
+  <button onclick="cloudSyncNow()">☁️ Sync Now</button>
+  <small>Admin/Staff account ကို Firebase Authentication မှာ အသုံးပြုပါ။ Cloud business data ကို Firestore မှာ သိမ်းပြီး local backup ကို localStorage မှာ ဆက်ထားပါမယ်။</small>
+</section>
+
+<nav>
+  <button onclick="show('dash')">Dashboard</button>
+  <button onclick="show('order')">🛒 New Order</button>
+  <button onclick="show('orders')">📋 Orders</button>
+  <button onclick="show('customer')">👥 Customers</button>
+  <button onclick="show('product')">📦 ကုန်ပစ္စည်း</button>
+  <button onclick="show('sale')">💰 ရောင်းစာရင်း</button>
+  <button onclick="show('car')">🚗 ကားစာရင်း</button>
+  <button onclick="show('liveMapSection')">🗺️ Live Vehicles Map</button>
+  <button onclick="show('reports')">📊 Reports</button>
+  <button onclick="show('backup')">Backup</button>
+    <option value="sale">💰 ရောင်းစာရင်း</option>
+    <option value="car">🚗 ကားစာရင်း</option>
+    <option value="reports">📊 Reports</option>
+    <option value="backup">💾 Backup</option>
+  </select>
+</nav>
+
+<main>
+<section id="dash">
+  <div class="grid">
+    <div class="box">ယနေ့ Order<div id="dOrders" class="metric">0</div></div>
+    <div class="box">Pending / Preparing<div id="dPending" class="metric">0</div></div>
+    <div class="box">In Transit<div id="dTransit" class="metric">0</div></div>
+    <div class="box">Overdue<div id="dOverdue" class="metric dangerText">0</div></div>
+    <div class="box">Delivered<div id="dDelivered" class="metric">0</div></div>
+    <div class="box">ယနေ့ရောင်းရငွေ<div id="salesT" class="metric">0</div></div>
+    <div class="box">ဝယ်သူရရန်ရှိ<div id="recvT" class="metric">0</div></div>
+    <div class="box">ကား Net Profit<div id="carT" class="metric">0</div></div>
+  </div>
+  <div class="box">
+    <h3>🚨 အချိန်ကျော် / ပို့ဆောင်ရန်လိုသော Order</h3>
+    <div class="scroll"><table><thead><tr><th>Order ID</th><th>Customer</th><th>ပစ္စည်း</th><th>Expected</th><th>Status</th></tr></thead>
+    <tbody id="urgentOrders"></tbody></table></div>
+  </div>
+  <div class="box">
+    <h3>📦 ပစ္စည်းလက်ကျန်</h3>
+    <div class="scroll"><table><thead><tr><th>ID</th><th>ပစ္စည်းအမည်</th><th>အမျိုးအစား</th><th>ဝယ်ဈေး</th><th>ရောင်းဈေး</th><th>လက်ကျန်</th></tr></thead>
+    <tbody id="stock"></tbody></table></div>
+  </div>
+</section>
+
+<section id="order" class="hidden">
+  <div class="box">
+    <h3>🛒 New Order လက်ခံရန်</h3>
+    <div class="grid">
+      <div><label>Order ID</label><input id="oid" readonly></div>
+      <div><label>Voucher No.</label><input id="ovoucher" placeholder="Voucher နံပါတ်"></div>
+      <div><label>Order Date</label><input id="odate" type="date"></div>
+      <div><label>Customer Name</label><input id="obuyer" placeholder="ဝယ်သူအမည်" oninput="updateOrderCustomerBalance()">
+        <div id="orderCustomerBalance" style="margin-top:6px;padding:8px 10px;border-radius:8px;background:#f5f7fa;font-weight:bold;color:#333">ယခင်ရရန်ရှိငွေ: 0 Ks</div></div>
+      <div><label>Phone</label><input id="ophone" placeholder="09xxxxxxxxx"></div>
+      <div><label>Expected Delivery</label><input id="expected" type="date"></div>
+    </div>
+    <label>Address</label><input id="oaddress" placeholder="ပို့ရမည့်လိပ်စာ">
+    <div class="box"><h4>📦 Order ပစ္စည်းစာရင်း — Unlimited</h4>
+      <div class="scroll"><table><thead><tr><th>#</th><th>ပစ္စည်း</th><th>Qty</th><th>Size / Color</th><th>Unit Price</th><th>Discount</th><th>Total</th><th>ဖယ်ရန်</th></tr></thead><tbody id="orderItems"></tbody></table></div>
+      <button onclick="addOrderItem()">+ ပစ္စည်းထည့်ရန်</button>
+      <div class="grid"><div><label>ကားခ</label><input id="odeliveryFee" type="number" value="0" oninput="updateOrderTotal()"></div><div><label>လုပ်သားခ</label><input id="olaborFee" type="number" value="0" oninput="updateOrderTotal()"></div></div><div style="text-align:right;font-size:20px;font-weight:bold">Order Total: <span id="orderGrandTotal">0</span> Ks</div>
+      <div class="grid"><div><label>Payment</label><select id="opay"><option value="cash">Paid / Cash</option><option value="credit">COD / ရရန်ရှိ</option><option value="partial">Partial Payment</option></select></div><div><label>Paid</label><input id="opaid" type="number" value="0" oninput="updateOrderTotal()"></div><div><label>Balance</label><input id="obalance" type="number" value="0" readonly></div></div>
+    </div>
+    <div class="grid">
+      <div><label>ပို့သည့်ကား</label><select id="odeliveryCar"></select></div>
+      <div><label>Courier</label><input id="ocourier" placeholder="Delivery company"></div>
+      <div><label>Tracking No.</label><input id="otracking" placeholder="Tracking number"></div>
+    </div>
+    <label>Note</label><input id="onote" placeholder="အထူးညွှန်ကြားချက်">
+    <button onclick="addOrder()">Order သိမ်းမည်</button>
+    <button onclick="clearOrder()">Clear</button>
+  </div>
+</section>
+
+<section id="orders" class="hidden">
+  <div class="box">
+    <h3>📋 Order Tracking</h3>
+    <input id="orderSearch" placeholder="Order ID / Customer / Phone / Tracking No. ရှာရန်" oninput="renderOrders()">
+    <div id="orderCustomerGrandTotal" style="margin:10px 0;padding:12px;border:1px solid #d9dee7;border-radius:10px;background:#f7f9fc;font-weight:600;line-height:1.8">Customer အမည်ရိုက်ပါက ရရန်ရှိငွေ Grand Total ကို ဒီနေရာမှာ ပြပါမယ်။</div>
+    <select id="statusFilter" onchange="renderOrders()">
+      <option value="">Status အားလုံး</option><option>New</option><option>Confirmed</option><option>Preparing</option>
+      <option>Packed</option><option>Shipped</option><option>In Transit</option><option>Out for Delivery</option>
+      <option>Delivered</option><option>On Hold</option><option>Delivery Failed</option><option>Returned</option><option>Cancelled</option>
+    </select>
+    <div class="scroll"><table><thead><tr>
+      <th>Order ID</th><th>Date</th><th>Customer</th><th>Address</th><th>Product</th><th>Qty</th><th>Total</th>
+      <th>Paid</th><th>Balance</th><th>Expected</th><th>Courier / Tracking</th><th>Note</th><th>Status</th><th>Action</th>
+    </tr></thead><tbody id="ordersBody"></tbody></table></div>
+  </div>
+</section>
+
+<section id="customer" class="hidden">
+  <div class="box">
+    <h3>🔍 Customer Search / Order History</h3>
+    <input id="customerSearch" placeholder="ဝယ်သူအမည် / ဖုန်းနံပါတ် ရိုက်ပါ..." oninput="renderCustomers()">
+    <div id="customerResults"></div>
+  </div>
+</section>
+
+<section id="product" class="hidden">
+  <div class="box">
+    <h3>ကုန်ပစ္စည်းထည့်ရန်</h3>
+    <input id="pid" placeholder="Product ID"><input id="pname" list="productNameList" placeholder="ပစ္စည်းအမည် (ရွေးရန်/ရိုက်ထည့်ရန်)"><datalist id="productNameList"></datalist>
+    <select id="ptype"><option value="">ပစ္စည်းအမျိုးအစား ရွေးပါ</option><option>အစားအသောက်</option><option>အဝတ်အစား</option><option>အိမ်သုံးပစ္စည်း</option><option>အီလက်ထရောနစ်</option><option>အလှကုန်</option><option>ဆောက်လုပ်ရေးပစ္စည်း</option><option>Cement</option><option>အုတ်/သဲ/ကျောက်</option><option>ဝါး/မျော</option><option>အုန်းဆံကြိုး</option><option>အထပ်သား</option><option>အိမ်ဆောက်သံ</option><option>ရုံးသုံးပစ္စည်း</option><option>အခြား</option></select>
+    <input id="buy" type="number" placeholder="ဝယ်ဈေး"><input id="sell" type="number" placeholder="ရောင်းဈေး">
+    <input id="open" type="number" placeholder="အစလက်ကျန်">
+    <button onclick="addProduct()">သိမ်းမည်</button>
+  </div>
+  <div class="box">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end">
+      <div><label>🔎 ပစ္စည်းအမည် Filter</label><input id="productNameFilter" placeholder="ပစ္စည်းအမည် ရှာရန်" oninput="filterProductTable()"></div>
+      <div><label>🔎 အမျိုးအစား Filter</label><select id="productTypeFilter" onchange="filterProductTable()"><option value="">အမျိုးအစားအားလုံး</option></select></div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>ID</th><th>ပစ္စည်းအမည်</th><th>အမျိုးအစား</th><th>ဝယ်ဈေး</th><th>ရောင်းဈေး</th><th>အစလက်ကျန်</th><th>Action</th></tr></thead>
+  <tbody id="products"></tbody></table></div>
+</section>
+
+<section id="sale" class="hidden"><div class="box"><h3>နေ့စဉ် ကုန်ပစ္စည်းရောင်းစာရင်း — Unlimited ပစ္စည်း</h3><div class="grid"><div><label>Voucher No.</label><input id="svoucher" placeholder="Voucher နံပါတ်"></div><div><label>ရက်စွဲ</label><input id="sdate" type="date"></div><div><label>ဝယ်သူ</label><input id="buyer" placeholder="ဝယ်သူနာမည်"></div><div><label>ပို့သည့်ကား</label><select id="sdeliveryCar"><option value="">ကားရွေးပါ</option></select></div><div><label>သွားခဲ့သည့် Location</label><input id="saddress" placeholder="ပို့ဆောင်သည့်နေရာ / Location"></div><div><label>Note</label><input id="snote" placeholder="မှတ်ချက်"></div><div><label>ငွေပေးချေမှု</label><select id="pay"><option value="cash">ချက်ချင်းပေးချေ</option><option value="credit">ရရန်ရှိ</option><option value="payment">အကြွေးပေးချေ</option></select></div></div><div class="box"><h4>📦 ပစ္စည်းစာရင်း</h4><div class="scroll"><table><thead><tr><th>#</th><th>ပစ္စည်း</th><th>Qty</th><th>ရောင်းဈေး</th><th>စုစုပေါင်း</th><th>ဖယ်ရန်</th></tr></thead><tbody id="saleItems"></tbody></table></div><button onclick="addSaleItem()">+ ပစ္စည်းထည့်ရန်</button><div class="grid"><div><label>ကားခ</label><input id="sdeliveryFee" type="number" value="0" oninput="updateSaleTotal()"></div><div><label>လုပ်သားခ</label><input id="slaborFee" type="number" value="0" oninput="updateSaleTotal()"></div></div><div style="text-align:right;font-size:20px;font-weight:bold">စုစုပေါင်း: <span id="saleGrandTotal">0</span> Ks</div><div class="grid"><div><label>ပေးချေငွေ</label><input id="paid" type="number" value="0" oninput="updateSaleTotal()"></div><div><label>ရရန်ရှိ</label><input id="saleBalance" type="number" value="0" readonly></div></div><button onclick="addSale()">ရောင်းစာရင်းသိမ်းမည်</button><button onclick="clearSaleForm()">Clear</button></div></div><div class="box"><table><thead><tr><th>ရက်စွဲ</th><th>ဝယ်သူ</th><th>ပစ္စည်းများ</th><th>Qty</th><th>ပို့သည့်ကား</th><th>ရောင်းရငွေ</th><th>ပေးချေ</th><th>ရရန်ရှိ</th><th>Action</th></tr></thead><tbody id="sales"></tbody></table></div></section>
+
+<section id="car" class="hidden"><div class="box"><h3>🚗 ကား Daily စာရင်း</h3><div class="grid"><div><label>ရက်စွဲ</label><input id="cdate" type="date"></div><div><label>ကား</label><select id="cid"></select></div><div><label>ငွေရ</label><input id="cin" type="number" placeholder="ငွေရ"></div><div><label>ငွေထွက်</label><input id="cex" type="number" placeholder="ငွေထွက်"></div><div><label>Driver Salary</label><input id="csal" type="number" placeholder="Driver Salary"></div></div><button onclick="addCar()">သိမ်းမည်</button></div><div class="box"><h4>➕ ကားအသစ်ထည့်ရန် / ကားအမည်ပြင်ရန်</h4><div class="grid"><div><label>ကားအမည်</label><input id="newCarName" placeholder="ဥပမာ CAR-06 / Delivery Van"></div></div><button onclick="addNewCar()">ကားအသစ်ထည့်မည်</button><div class="grid" id="carNameEditor"></div><button onclick="saveCarNames()">ကားအမည်များ သိမ်းမည်</button></div><div class="box"><h4>📍 ကားတစ်စီးချင်း Order သွားခဲ့သည့် မှတ်တမ်း</h4><div class="scroll"><table><thead><tr><th>ကား</th><th>Order + ရောင်း ခေါက်ရေ</th><th>ငွေရ</th><th>ငွေထွက်</th><th>Salary</th><th>Net</th><th>Order သွားခဲ့သည့် Location / Customer / Note</th></tr></thead><tbody id="cars"></tbody></table></div></div></section>
+
+<section id="liveMapSection" class="hidden">
+<div class="box">
+  <h3>🗺️ 🚗 Live Vehicles Map</h3>
+  <div class="live-status" id="firebaseStatus">Firebase: မချိတ်ဆက်ရသေးပါ</div>
+  <p style="margin:6px 0">ကားများ၏ GPS Location ကို Firebase Realtime Database မှ real-time ကြည့်ရှုနိုင်ပါသည်။</p>
+  <div class="grid">
+    <div><label>Firebase Realtime Database URL</label><input id="rtdbUrl" placeholder="https://....firebasedatabase.app"><small>Firebase Console → Realtime Database → Data မှ URL ကို copy ထည့်ပါ။</small></div>
+    <div style="display:flex;align-items:end"><button class="success" onclick="connectLiveFirebase()">☁️ Firebase ချိတ်မည်</button></div>
+  </div>
+</div>
+<div class="box">
+  <h4>☁️ Firebase GPS Data Structure</h4>
+  <p>Real-time GPS data ကို Firebase Realtime Database ရဲ့ <b>vehicleLocations</b> node အောက်မှာ သိမ်းပါမယ်။</p>
+  <pre style="background:#f3f6fa;padding:10px;border-radius:8px;overflow:auto;font-size:12px">vehicleLocations
+ ├── CAR-01
+ │   ├── lat
+ │   ├── lng
+ │   ├── speed
+ │   ├── heading
+ │   ├── driver
+ │   ├── orderId
+ │   ├── destination
+ │   ├── online
+ │   └── updatedAt
+ ├── CAR-02
+ ├── CAR-03
+ ├── CAR-04
+ └── CAR-05</pre>
+  <small>ကားအရေအတွက်ကို App ထဲက 🚗 ကားစာရင်းမှ ထပ်တိုးနိုင်ပြီး GPS node ကို အလိုအလျောက်အသုံးပြုနိုင်ပါတယ်။</small>
+</div>
+<div class="box">
+  <h4>📱 Driver GPS Tracking</h4>
+  <div class="grid">
+    <div><label>ကား</label><select id="liveVehicleSelect"></select></div>
+    <div><label>Driver Name</label><input id="liveDriverName" placeholder="Driver အမည်"></div>
+    <div><label>Order ID</label><input id="liveOrderId" placeholder="ORD-..."></div>
+    <div><label>Destination</label><input id="liveDestination" placeholder="ပို့ရမည့်နေရာ"></div>
+  </div>
+  <button class="success" onclick="startVehicleTracking()">📍 GPS Tracking စမည်</button>
+  <button class="danger" onclick="stopVehicleTracking()">⏹️ Tracking ရပ်မည်</button>
+  <div id="trackingStatus" class="live-status">Tracking: OFF</div>
+  <small>မှတ်ချက် — ဒီ HTML version သည် ဖုန်း browser ကို ဖွင့်ထားချိန် GPS ကို Firebase သို့ ပို့ပေးနိုင်ပါသည်။ Screen ပိတ်ထားချိန်/background tracking အတွက် Android app + foreground location service လိုအပ်ပါမည်။</small>
+</div>
+<div class="box">
+  <div class="map-grid">
+    <div><div id="liveMap"></div></div>
+    <div><h4>🚗 လက်ရှိကားများ</h4><div id="liveVehicleList">Firebase ချိတ်ပြီးနောက် ကားများပြပါမည်။</div></div>
+  </div>
+</div>
+</section>
+<section id="reports" class="hidden">
+  <div class="box"><h3>နေ့/လ/နှစ်ချုပ် Report</h3>
+    <select id="period" onchange="report()"><option value="day">နေ့ချုပ်</option><option value="month">လချုပ်</option><option value="year">နှစ်ချုပ်</option></select>
+    <input id="rdate" type="date" onchange="report()"><input id="ryear" type="number" value="2026" onchange="report()">
+    <div id="reportout"></div>
+  </div>
+</section>
+
+<section id="backup" class="hidden">
+  <div class="box"><h3>🛡️ Data Protection & Backup</h3>
+    <p id="dataHealth" style="margin:6px 0;color:#18794e;font-weight:bold">Data စစ်ဆေးနေသည်...</p>
+    <button onclick="backup()">⬇️ Backup JSON</button>
+    <input type="file" accept=".json" onchange="restore(event)">
+    <button onclick="repairData()">🔧 Data စစ်ဆေး / ပြင်ဆင်</button>
+    <button class="danger" onclick="wipe()">စာရင်းအားလုံးဖျက်မည်</button>
+    <p style="font-size:12px;color:#666">သိမ်းမည့်အချိန်တိုင်း data structure ကိုစစ်ဆေးပြီး နောက်ဆုံး backup snapshot များကို browser ထဲတွင် ထိန်းသိမ်းပေးပါသည်။</p>
+  </div>
+</section>
+</main>
+<div id="printArea"></div>
+
+<style>
+body{font-family:Arial,sans-serif;background:#f3f6fa;margin:0;color:#17212b}
+header{background:#1f4e78;color:#fff;padding:16px;text-align:center}
+nav{display:flex;gap:5px;overflow:auto;background:#fff;padding:8px;position:sticky;top:0;z-index:10}
+button{background:#1f4e78;color:#fff;border:0;border-radius:7px;padding:10px;margin:3px;cursor:pointer}
+button.danger{background:#b42318}.success{background:#18794e}
+main{max-width:1400px;margin:auto;padding:12px}.box{background:#fff;border-radius:10px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #0001}
+.hidden{display:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.metric{font-size:22px;font-weight:bold}.dangerText{color:#b42318}
+input,select{width:100%;box-sizing:border-box;padding:9px;margin:4px 0 9px;border:1px solid #ccd4dc;border-radius:6px}.nav-category{width:auto;min-width:180px;margin:0;background:#1f4e78;color:#fff;border:0;font-weight:bold;cursor:pointer}
+table{width:100%;border-collapse:collapse}th,td{padding:7px;border-bottom:1px solid #ddd;text-align:left;white-space:nowrap}
+th{background:#d9eaf7}.scroll{overflow:auto}.overdue{background:#ffe1e1}.delivered{background:#e5f7eb}.status{font-weight:bold}
+.smallbtn{padding:5px 7px;font-size:12px}.car-name-row{min-width:220px}.car-name-input{cursor:text;pointer-events:auto;background:#fff;color:#17212b}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const K='completeApp';
+const DB_VERSION=17;
+const EMPTY_DB={version:DB_VERSION,products:[],sales:[],cars:[],orders:[],carNames:{'CAR-01':'CAR-01','CAR-02':'CAR-02','CAR-03':'CAR-03','CAR-04':'CAR-04','CAR-05':'CAR-05'},carList:['CAR-01','CAR-02','CAR-03','CAR-04','CAR-05']};
+function safeNumber(v, fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
+function cleanText(v){return String(v??'').trim();}
+function currentDate(){return new Date().toISOString().slice(0,10);}
+function makeId(prefix){return prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,7).toUpperCase();}
+function normalizeDB(raw){
+  const d=(raw&&typeof raw==='object')?raw:{};
+  d.version=DB_VERSION; d.products=Array.isArray(d.products)?d.products:[]; d.sales=Array.isArray(d.sales)?d.sales:[]; d.orders=Array.isArray(d.orders)?d.orders:[]; d.cars=Array.isArray(d.cars)?d.cars:[];
+  d.carNames=(d.carNames&&typeof d.carNames==='object')?d.carNames:{}; d.carList=Array.isArray(d.carList)?d.carList:[];
+  ['CAR-01','CAR-02','CAR-03','CAR-04','CAR-05'].forEach(id=>{if(!d.carList.includes(id))d.carList.push(id);if(!d.carNames[id])d.carNames[id]=id;});
+  d.carList=[...new Set(d.carList.map(cleanText).filter(Boolean))]; d.carList.forEach(id=>{d.carNames[id]=cleanText(d.carNames[id])||id;});
+  d.products.forEach((p,i)=>{p.id=cleanText(p.id)||'P-'+String(i+1).padStart(3,'0');p.name=cleanText(p.name);p.type=cleanText(p.type);p.buy=Math.max(0,safeNumber(p.buy));p.sell=Math.max(0,safeNumber(p.sell));p.open=Math.max(0,safeNumber(p.open));});
+  const pids=new Set(d.products.map(p=>p.id));
+  d.orders.forEach((o,i)=>{o.id=cleanText(o.id)||'ORD-'+String(i+1).padStart(4,'0');o.voucherNo=cleanText(o.voucherNo);o.date=cleanText(o.date)||currentDate();o.customer=cleanText(o.customer);o.phone=cleanText(o.phone);o.address=cleanText(o.address);o.note=cleanText(o.note);o.courier=cleanText(o.courier);o.tracking=cleanText(o.tracking);o.deliveryCar=cleanText(o.deliveryCar);o.items=Array.isArray(o.items)?o.items:[];o.items=o.items.filter(x=>x&&pids.has(x.pid)).map(x=>({pid:x.pid,qty:Math.max(0,safeNumber(x.qty)),variant:cleanText(x.variant),price:Math.max(0,safeNumber(x.price)),discount:Math.max(0,safeNumber(x.discount))}));o.deliveryFee=Math.max(0,safeNumber(o.deliveryFee));o.laborFee=Math.max(0,safeNumber(o.laborFee));o.total=Math.max(0,safeNumber(o.total));o.paid=Math.min(o.total,Math.max(0,safeNumber(o.paid)));o.balance=Math.max(0,o.total-o.paid);o.expected=cleanText(o.expected)||o.date;o.status=cleanText(o.status)||'New';});
+  d.sales.forEach((s,i)=>{s.id=cleanText(s.id)||'SAL-'+String(i+1).padStart(5,'0');s.voucherNo=cleanText(s.voucherNo);s.date=cleanText(s.date)||currentDate();s.buyer=cleanText(s.buyer);s.address=cleanText(s.address);s.note=cleanText(s.note);s.deliveryCar=cleanText(s.deliveryCar);s.items=Array.isArray(s.items)?s.items:[];s.items=s.items.filter(x=>x&&pids.has(x.pid)).map(x=>({pid:x.pid,qty:Math.max(0,safeNumber(x.qty)),price:Math.max(0,safeNumber(x.price))}));s.deliveryFee=Math.max(0,safeNumber(s.deliveryFee));s.laborFee=Math.max(0,safeNumber(s.laborFee));s.total=Math.max(0,safeNumber(s.total));s.paid=Math.min(s.total,Math.max(0,safeNumber(s.paid)));s.credit=Math.max(0,s.total-s.paid);});
+  d.cars.forEach(c=>{c.id=cleanText(c.id);c.date=cleanText(c.date)||currentDate();c.inc=Math.max(0,safeNumber(c.inc));c.ex=Math.max(0,safeNumber(c.ex));c.sal=Math.max(0,safeNumber(c.sal));});
+  return d;
+}
+function loadDB(){try{return normalizeDB(JSON.parse(localStorage.getItem(K)||'null'));}catch(e){return normalizeDB(EMPTY_DB);}}
+let db=loadDB();
+const M=x=>safeNumber(x).toLocaleString();
+const today=()=>new Date().toISOString().slice(0,10);
+function save(){
+  db=normalizeDB(db);
+  try{
+    const old=localStorage.getItem(K); if(old){localStorage.setItem(K+'_lastgood',old);}
+    localStorage.setItem(K,JSON.stringify(db));
+    render();
+    scheduleCloudSave();
+  }catch(e){alert('Data သိမ်းရာတွင် ပြဿနာရှိပါသည်။ Backup ကို အရင်လုပ်ပါ။');}
+}
+function show(id){
+ ['dash','order','orders','customer','product','sale','car','liveMapSection','reports','backup'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+ if(id==='orders')renderOrders(); if(id==='customer')renderCustomers(); if(id==='reports')report();
+}
+function nextOrderId(){
+ const d=today().replaceAll('-','');
+ const n=db.orders.filter(o=>o.id?.startsWith('ORD-'+d)).length+1;
+ return 'ORD-'+d+'-'+String(n).padStart(3,'0');
+}
+function fillProducts(){
+ const opts=db.products.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+ const op=document.getElementById('oproduct');
+ const spEl=document.getElementById('sp');
+ if(op) op.innerHTML=opts;
+ if(spEl) spEl.innerHTML=opts;
+}
+function orderPrice(){
+ const op=document.getElementById('oproduct');
+ const pr=document.getElementById('oprice');
+ if(!op||!pr)return;
+ const p=db.products.find(x=>x.id===op.value);
+ pr.value=p?p.sell:0;
+}
+let orderItems=[];
+function addOrderItem(){let p=db.products[0];if(!p)return alert('အရင်ဆုံး ကုန်ပစ္စည်းထည့်ပါ။');orderItems.push({pid:p.id,qty:1,variant:'',price:p.sell||0,discount:0});renderOrderItems();}
+function removeOrderItem(i){orderItems.splice(i,1);renderOrderItems();}
+function orderItemChange(i,k,v){orderItems[i][k]=k==='pid'?v:(k==='variant'?v:(Number(v)||0));if(k==='pid'){let p=db.products.find(p=>p.id===v);orderItems[i].price=p?.sell||0;}renderOrderItems();}
+function renderOrderItems(){let t=document.getElementById('orderItems');if(!t)return;t.innerHTML=orderItems.map((it,i)=>`<tr><td>${i+1}</td><td><select onchange="orderItemChange(${i},'pid',this.value)">${db.products.map(p=>`<option value="${p.id}" ${p.id===it.pid?'selected':''}>${p.name}</option>`).join('')}</select></td><td><input type="number" min="1" value="${it.qty}" onchange="orderItemChange(${i},'qty',this.value)"></td><td><input value="${it.variant||''}" onchange="orderItemChange(${i},'variant',this.value)"></td><td><input type="number" value="${it.price}" onchange="orderItemChange(${i},'price',this.value)"></td><td><input type="number" value="${it.discount||0}" onchange="orderItemChange(${i},'discount',this.value)"></td><td>${M(Math.max(0,(it.qty||0)*(it.price||0)-(it.discount||0)))}</td><td><button class="smallbtn danger" onclick="removeOrderItem(${i})">ဖယ်</button></td></tr>`).join('')||'<tr><td colspan="8">+ ပစ္စည်းထည့်ရန် ကိုနှိပ်ပါ။</td></tr>';updateOrderTotal();}
+function updateOrderTotal(){let itemsTotal=orderItems.reduce((a,x)=>a+Math.max(0,(+x.qty||0)*(+x.price||0)-(+x.discount||0)),0),delivery=+(document.getElementById('odeliveryFee')?.value||0),labor=+(document.getElementById('olaborFee')?.value||0),total=itemsTotal+delivery+labor,p=+(opaid.value||0);if(opay.value==='cash')p=total;if(opay.value==='credit')p=0;orderGrandTotal.textContent=M(total);obalance.value=Math.max(0,total-p);return total;}
+function updateOrderCustomerBalance(){
+ const el=document.getElementById('orderCustomerBalance');
+ const input=document.getElementById('obuyer');
+ if(!el||!input)return;
+ const name=(input.value||'').trim().toLowerCase();
+ if(!name){el.innerHTML='ယခင်ရရန်ရှိငွေ: <b>0 Ks</b>';return;}
+ const matches=db.orders.filter(o=>(o.customer||'').trim().toLowerCase()===name);
+ const balance=matches.reduce((sum,o)=>sum+(Number(o.balance)!=null?Number(o.balance):Math.max(0,(Number(o.total)||0)-(Number(o.paid)||0))),0);
+ const total=matches.reduce((sum,o)=>sum+(Number(o.total)||0),0);
+ const paid=matches.reduce((sum,o)=>sum+(Number(o.paid)||0),0);
+ if(matches.length){
+   el.innerHTML=`👤 ${esc(input.value.trim())} — ယခင် Order ${matches.length} ခု | Total: ${M(total)} Ks | Paid: ${M(paid)} Ks | <span style="color:#b00020">ရရန်ရှိငွေ: ${M(balance)} Ks</span>`;
+ }else{
+   el.innerHTML='အသစ်ဝယ်သူ / ယခင်ရရန်ရှိငွေ: <b>0 Ks</b>';
+ }
+}
+function clearOrder(){['ovoucher','obuyer','ophone','oaddress','ocourier','otracking','onote'].forEach(id=>document.getElementById(id).value='');orderItems=[];opaid.value=0;expected.value=today();odate.value=today();oid.value=nextOrderId();document.getElementById('odeliveryFee').value=0;document.getElementById('olaborFee').value=0;document.getElementById('odeliveryCar').value='';renderOrderItems();updateOrderCustomerBalance();}
+function addOrder(){if(!orderItems.length)return alert('အနည်းဆုံး ပစ္စည်း ၁ မျိုးထည့်ပါ');if(!obuyer.value.trim())return alert('Customer အမည်ထည့်ပါ');let total=updateOrderTotal(),paid=+(opaid.value||0);if(opay.value==='cash')paid=total;if(opay.value==='credit')paid=0;let first=orderItems[0];db.orders.push({id:oid.value,date:odate.value||today(),customer:obuyer.value.trim(),phone:ophone.value.trim(),address:oaddress.value.trim(),items:orderItems.map(x=>({...x})),pid:first.pid,product:db.products.find(p=>p.id===first.pid)?.name||'',qty:orderItems.reduce((a,x)=>a+(+x.qty||0),0),variant:first.variant||'',total,deliveryFee:+(document.getElementById('odeliveryFee').value||0),laborFee:+(document.getElementById('olaborFee').value||0),paid,balance:Math.max(0,total-paid),expected:expected.value||today(),deliveryCar:document.getElementById('odeliveryCar').value||'',courier:ocourier.value.trim(),tracking:otracking.value.trim(),status:opay.value==='cash'?'Confirmed':'New',note:onote.value.trim(),packed:false,shippedDate:'',deliveredDate:''});save();alert('Order သိမ်းပြီးပါပြီ — '+oid.value);clearOrder();}
+function changeStatus(i,v){
+ db.orders[i].status=v;
+ if(v==='Delivered') db.orders[i].deliveredDate=today();
+ if(v==='Shipped'||v==='In Transit'||v==='Out for Delivery') db.orders[i].shippedDate ||= today();
+ save();
+}
+function editOrder(i){
+ const o=db.orders[i];
+ const s=prompt('Status ပြောင်းရန်\nNew, Confirmed, Preparing, Packed, Shipped, In Transit, Out for Delivery, Delivered, On Hold, Delivery Failed, Returned, Cancelled',o.status||'New');
+ if(s===null) return;
+ const paidInput=prompt('ရပြီးငွေ (Paid) ကို ပြင်ရန် — ဥပမာ 50000', String(Number(o.paid)||0));
+ if(paidInput===null) return;
+ const noteInput=prompt('Note ကို ပြင်ရန်', o.note||'');
+ if(noteInput===null) return;
+ let paid=Number(paidInput);
+ if(!Number.isFinite(paid)||paid<0) return alert('Paid ငွေပမာဏ မှားနေပါတယ်။ 0 သို့မဟုတ် အပြုသဘောနံပါတ် ထည့်ပါ။');
+ const total=Number(o.total)||0;
+ if(paid>total) return alert('Paid သည် Order Total ထက် မများရပါ။');
+ o.status=s.trim()||o.status||'New';
+ o.paid=paid;
+ o.balance=Math.max(0,total-paid);
+ o.note=noteInput;
+ if(o.status==='Delivered') o.deliveredDate=today();
+ save();
+ renderOrders();
+}
+function deleteOrder(i){if(confirm('ဒီ Order ကို ဖျက်မှာသေချာပါသလား?')){db.orders.splice(i,1);save();}}
+function isOverdue(o){return o.status!=='Delivered'&&o.status!=='Cancelled'&&o.status!=='Returned'&&o.expected<today()}
+function renderOrders(){
+ const q=(orderSearch.value||'').trim().toLowerCase(), f=statusFilter.value;
+ const all=db.orders.map((o,i)=>({o,i}));
+ const customerMatches=q ? all.filter(({o})=>(o.customer||'').trim().toLowerCase().includes(q)) : [];
+ const arr=all.filter(({o})=>
+   (!f||o.status===f) &&
+   (!q||[o.id,o.voucherNo,o.customer,o.phone,o.address,o.tracking,o.courier,o.note,o.product,...(o.items||[]).map(x=>db.products.find(p=>p.id===x.pid)?.name||x.pid)].join(' ').toLowerCase().includes(q))
+ ).reverse();
+ const grandTotal=arr.reduce((sum,{o})=>sum+(Number(o.total)||0),0);
+ const grandPaid=arr.reduce((sum,{o})=>sum+(Number(o.paid)||0),0);
+ const grandBalance=arr.reduce((sum,{o})=>sum+(Number(o.balance)!=null?Number(o.balance):Math.max(0,(Number(o.total)||0)-(Number(o.paid)||0))),0);
+ const box=document.getElementById('orderCustomerGrandTotal');
+ if(box){
+   if(q && customerMatches.length){
+     const names=[...new Set(customerMatches.map(({o})=>(o.customer||'').trim()).filter(Boolean))];
+     const ct=customerMatches.reduce((sum,{o})=>sum+(Number(o.total)||0),0);
+     const cp=customerMatches.reduce((sum,{o})=>sum+(Number(o.paid)||0),0);
+     const cb=customerMatches.reduce((sum,{o})=>sum+(Number(o.balance)!=null?Number(o.balance):Math.max(0,(Number(o.total)||0)-(Number(o.paid)||0))),0);
+     box.innerHTML=`👤 <b>${esc(names.join(', '))}</b> &nbsp; | &nbsp; Order: ${customerMatches.length} ခု &nbsp; | &nbsp; Total: ${M(ct)} Ks &nbsp; | &nbsp; ရပြီးငွေ: ${M(cp)} Ks &nbsp; | &nbsp; <span style="color:#b00020">ရရန်ရှိငွေ Grand Total: ${M(cb)} Ks</span>`;
+   }else{
+     box.innerHTML=`📊 လက်ရှိစာရင်း Grand Total — Total: ${M(grandTotal)} Ks &nbsp; | &nbsp; ရပြီးငွေ: ${M(grandPaid)} Ks &nbsp; | &nbsp; <span style="color:#b00020">ရရန်ရှိငွေ: ${M(grandBalance)} Ks</span>`;
+   }
+ }
+ ordersBody.innerHTML=arr.map(({o,i})=>{
+   const over=isOverdue(o);
+   return `<tr class="${over?'overdue':''}">
+    <td><b>${esc(o.id)}</b><br><small>Voucher: ${esc(o.voucherNo||'-')}</small></td><td>${esc(o.date)}</td><td>${esc(o.customer)}<br>${esc(o.phone)}</td>
+    <td style="white-space:normal;min-width:180px">${esc(o.address||'-')}</td>
+    <td style="white-space:normal">${Array.isArray(o.items)?o.items.map(x=>esc((db.products.find(p=>p.id===x.pid)?.name||x.pid)+' × '+x.qty+(x.variant?' / '+x.variant:''))).join('<br>'):esc((o.product||'-')+' '+(o.variant||''))}</td><td>${o.qty||0}</td><td>${M(o.total)}</td><td>${M(o.paid)}</td><td>${M(o.balance)}</td>
+    <td>${esc(o.expected||'-')}${over?' 🔴':''}</td><td style="white-space:normal;min-width:150px">${esc(o.courier||'-')}${o.tracking?'<br>📦 '+esc(o.tracking):''}</td>
+    <td style="white-space:normal;min-width:180px">${esc(o.note||'-')}</td>
+    <td><select class="status" onchange="changeStatus(${i},this.value)">
+      ${['New','Confirmed','Preparing','Packed','Shipped','In Transit','Out for Delivery','Delivered','On Hold','Delivery Failed','Returned','Cancelled'].map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}
+    </select></td>
+    <td><button class="smallbtn success" onclick="printVoucher('order',${i})">🖨️ Print</button><button class="smallbtn" onclick="editOrder(${i})">Edit</button><button class="smallbtn danger" onclick="deleteOrder(${i})">ဖျက်</button></td>
+   </tr>`;
+ }).join('')||'<tr><td colspan="14">Order မတွေ့ပါ။</td></tr>';
+}
+function renderCustomers(){
+ const q=(customerSearch.value||'').toLowerCase();
+ const names=[...new Set(db.orders.map(o=>o.customer).filter(Boolean))].filter(n=>n.toLowerCase().includes(q));
+ customerResults.innerHTML=names.map(name=>{
+   const a=db.orders.filter(o=>o.customer===name), total=a.reduce((s,o)=>s+o.total,0), paid=a.reduce((s,o)=>s+o.paid,0), bal=total-paid;
+   return `<div class="box"><b>👤 ${name}</b><br>Orders: ${a.length} | Total: ${M(total)} | Paid: ${M(paid)} | <b>Balance: ${M(bal)}</b>
+   <div class="scroll"><table><thead><tr><th>Order</th><th>Voucher</th><th>Product</th><th>Total</th><th>Expected</th><th>Status</th><th>Tracking</th></tr></thead>
+   <tbody>${a.map(o=>`<tr><td>${o.id}</td><td>${o.voucherNo||'-'}</td><td>${Array.isArray(o.items)?o.items.map(x=>(db.products.find(p=>p.id===x.pid)?.name||x.pid)+' × '+x.qty).join('<br>'):o.product+' × '+o.qty}</td><td>${M(o.total)}</td><td>${o.expected}</td><td>${o.status}</td><td>${o.tracking||'-'}</td></tr>`).join('')}</tbody></table></div></div>`;
+ }).join('')||'<p>Customer မတွေ့ပါ။</p>';
+}
+function addProduct(){
+ const id=document.getElementById('pid').value.trim();
+ const name=document.getElementById('pname').value.trim();
+ const type=document.getElementById('ptype').value.trim();
+ const buyV=Number(document.getElementById('buy').value)||0;
+ const sellV=Number(document.getElementById('sell').value)||0;
+ const openV=Number(document.getElementById('open').value)||0;
+ if(!id||!name)return alert('Product ID နှင့် ပစ္စည်းအမည်ထည့်ပါ');
+ if(db.products.some(p=>String(p.id).toLowerCase()===id.toLowerCase()))return alert('ဒီ Product ID ရှိပြီးသားဖြစ်ပါတယ်။ အခြား ID သုံးပါ။');
+ db.products.push({id,name,type,buy:buyV,sell:sellV,open:openV});
+ document.getElementById('pid').value='';
+ document.getElementById('pname').value='';
+ document.getElementById('ptype').value='';
+ document.getElementById('buy').value='';
+ document.getElementById('sell').value='';
+ document.getElementById('open').value='';
+ save();
+ show('product');
+}
+function addSale(){
+ let p=db.products.find(x=>x.id===sp.value),q=+qty.value||0,v=(+price.value||0)*q,pa=+paid.value||0;
+ if(!p||q<=0)return alert('ပစ္စည်းနှင့် အရေအတွက်စစ်ပါ');
+ db.sales.push({date:sdate.value||today(),buyer:buyer.value,pid:p.id,name:p.name,qty:q,total:v,
+   paid:pay.value==='credit'?0:(pay.value==='cash'?v:pa),credit:pay.value==='credit'?v:v-pa});
+ save();
+}
+let saleItems=[];function addSaleItem(){let p=db.products[0];if(!p)return alert('အရင်ဆုံး ကုန်ပစ္စည်းထည့်ပါ။');saleItems.push({pid:p.id,qty:1,price:p.sell||0});renderSaleItems();}function removeSaleItem(i){saleItems.splice(i,1);renderSaleItems();}function saleItemChange(i,k,v){saleItems[i][k]=k==='pid'?v:(Number(v)||0);if(k==='pid'){let p=db.products.find(p=>p.id===v);saleItems[i].price=p?.sell||0;}renderSaleItems();}function renderSaleItems(){let t=document.getElementById('saleItems');if(!t)return;t.innerHTML=saleItems.map((it,i)=>`<tr><td>${i+1}</td><td><select onchange="saleItemChange(${i},'pid',this.value)">${db.products.map(p=>`<option value="${p.id}" ${p.id===it.pid?'selected':''}>${p.name}</option>`).join('')}</select></td><td><input type="number" min="1" value="${it.qty}" onchange="saleItemChange(${i},'qty',this.value)"></td><td><input type="number" value="${it.price}" onchange="saleItemChange(${i},'price',this.value)"></td><td>${M((it.qty||0)*(it.price||0))}</td><td><button class="smallbtn danger" onclick="removeSaleItem(${i})">ဖယ်</button></td></tr>`).join('')||'<tr><td colspan="6">ပစ္စည်းထည့်ရန် + ပစ္စည်းထည့်ရန် ကိုနှိပ်ပါ။</td></tr>';updateSaleTotal();}function updateSaleTotal(){let itemsTotal=saleItems.reduce((a,x)=>a+(+x.qty||0)*(+x.price||0),0),delivery=+(document.getElementById('sdeliveryFee')?.value||0),labor=+(document.getElementById('slaborFee')?.value||0),total=itemsTotal+delivery+labor,p=+(paid.value||0);saleGrandTotal.textContent=M(total);saleBalance.value=Math.max(0,total-p);return total;}function clearSaleForm(){saleItems=[];document.getElementById('svoucher').value='';buyer.value='';paid.value=0;pay.value='cash';sdate.value=today();document.getElementById('sdeliveryCar').value='';document.getElementById('saddress').value='';document.getElementById('snote').value='';document.getElementById('sdeliveryFee').value=0;document.getElementById('slaborFee').value=0;renderSaleItems();}function addSale(){if(!saleItems.length)return alert('အနည်းဆုံး ပစ္စည်း ၁ မျိုးထည့်ပါ');let total=updateSaleTotal(),pa=+(paid.value||0);if(pay.value==='cash')pa=total;if(pay.value==='credit')pa=0;db.sales.push({date:sdate.value||today(),buyer:buyer.value||'',deliveryCar:document.getElementById('sdeliveryCar')?.value||'',address:document.getElementById('saddress')?.value.trim()||'',note:document.getElementById('snote')?.value.trim()||'',paymentType:pay.value,items:saleItems.map(x=>({...x})),deliveryFee:+(document.getElementById('sdeliveryFee').value||0),laborFee:+(document.getElementById('slaborFee').value||0),total,paid:pa,credit:Math.max(0,total-pa),pid:saleItems[0].pid,name:db.products.find(p=>p.id===saleItems[0].pid)?.name||'',qty:saleItems.reduce((a,x)=>a+(+x.qty||0),0)});save();clearSaleForm();}function deleteSale(i){if(confirm('ဒီအရောင်းစာရင်းကို ဖျက်မှာသေချာပါသလား?')){db.sales.splice(i,1);save();}}
+function renderCarNames(){
+  const ids=Array.isArray(db.carList)?db.carList:[];
+  const carSelect=document.getElementById('cid');
+  const deliveryCarSelect=document.getElementById('odeliveryCar');
+  const saleDeliveryCarSelect=document.getElementById('sdeliveryCar');
+  const editor=document.getElementById('carNameEditor');
+  if(carSelect){
+    carSelect.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(db.carNames[id]||id)}</option>`).join('');
+  }
+  if(deliveryCarSelect){
+    const current=deliveryCarSelect.value;
+    deliveryCarSelect.innerHTML='<option value="">ကားရွေးပါ</option>'+ids.map(id=>`<option value="${esc(id)}">${esc(db.carNames[id]||id)}</option>`).join('');
+    if(ids.includes(current)) deliveryCarSelect.value=current;
+  }
+  if(saleDeliveryCarSelect){
+    const current=saleDeliveryCarSelect.value;
+    saleDeliveryCarSelect.innerHTML='<option value="">ကားရွေးပါ</option>'+ids.map(id=>`<option value="${esc(id)}">${esc(db.carNames[id]||id)}</option>`).join('');
+    if(ids.includes(current)) saleDeliveryCarSelect.value=current;
+  }
+  if(editor){
+    editor.innerHTML=ids.map((id,n)=>`<div class="car-name-row" style="display:flex;gap:6px;align-items:end;margin:6px 0;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><label>ကား ${n+1} (${esc(id)})</label><input type="text" class="car-name-input" id="carname-${esc(id)}" data-car-id="${esc(id)}" value="${esc(db.carNames[id]||id)}" autocomplete="off" spellcheck="false"></div>
+      <button type="button" class="smallbtn success" onclick="saveOneCarName('${esc(id)}')">💾 သိမ်း</button>
+    </div>`).join('');
+  }
+}
+function saveOneCarName(id){
+  const el=document.getElementById('carname-'+id);
+  const v=(el?.value||'').trim();
+  if(!v)return alert('ကားအမည်ထည့်ပါ။');
+  db.carNames[id]=v;
+  localStorage.setItem(K,JSON.stringify(db));
+  render();
+  alert('ကားအမည် သိမ်းပြီးပါပြီ — '+v);
+}
+
+function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function saveCarNames(){
+  document.querySelectorAll('.car-name-input').forEach(el=>{
+    const id=el.dataset.carId, v=(el.value||'').trim();
+    if(id && v) db.carNames[id]=v;
+  });
+  localStorage.setItem(K,JSON.stringify(db));
+  render();
+  alert('ကားအမည်များ သိမ်းပြီးပါပြီ။');
+}
+function addNewCar(){
+  const name=(document.getElementById('newCarName')?.value||'').trim();
+  if(!name)return alert('ကားအမည်ထည့်ပါ');
+  let n=1,id='CAR-'+String(n).padStart(2,'0');
+  while(db.carList.includes(id)){n++;id='CAR-'+String(n).padStart(2,'0');}
+  db.carList.push(id); db.carNames[id]=name;
+  document.getElementById('newCarName').value='';
+  save();
+  renderCarNames();
+  alert('ကားအသစ် ထည့်ပြီးပါပြီ — '+name);
+}
+function addCar(){if(!cid.value)return alert('ကားရွေးပါ');db.cars.push({date:cdate.value||today(),id:cid.value,inc:+cin.value||0,ex:+cex.value||0,sal:+csal.value||0});save();}
+function stockQty(p){const sold=db.sales.reduce((a,s)=>a+(Array.isArray(s.items)?s.items.filter(x=>x.pid===p.id).reduce((z,x)=>z+(+x.qty||0),0):(s.pid===p.id?(+s.qty||0):0)),0);const ordered=db.orders.filter(o=>!['Cancelled','Returned','Delivered'].includes(o.status)).reduce((a,o)=>a+(Array.isArray(o.items)?o.items.filter(x=>x.pid===p.id).reduce((z,x)=>z+(+x.qty||0),0):(o.pid===p.id?(+o.qty||0):0)),0);return p.open-sold-ordered;}
+function editCarOrderNote(orderIndex){
+  const o=db.orders[orderIndex];
+  if(!o)return;
+  const note=prompt('ဒီ Order ရဲ့ Note ကို ပြင်ရန်',o.note||'');
+  if(note===null)return;
+  o.note=note.trim();
+  localStorage.setItem(K,JSON.stringify(db));
+  render();
+}
+function editCarSaleNote(saleIndex){
+  const s=db.sales[saleIndex];
+  if(!s)return;
+  const note=prompt('ဒီရောင်းစာရင်းရဲ့ Note ကို ပြင်ရန်',s.note||'');
+  if(note===null)return;
+  s.note=note.trim();
+  localStorage.setItem(K,JSON.stringify(db));
+  render();
+}
+
+function fillProductNameList(){
+  const dl=document.getElementById("productNameList");
+  if(dl) dl.innerHTML=[...new Set(db.products.map(p=>p.name).filter(Boolean))].map(n=>`<option value="${esc(n)}"></option>`).join("");
+}
+
+const DEFAULT_PRODUCT_CATEGORIES=['အစားအသောက်','အဝတ်အစား','အိမ်သုံးပစ္စည်း','အီလက်ထရောနစ်','အလှကုန်','ဆောက်လုပ်ရေးပစ္စည်း','Cement','အုတ်/သဲ/ကျောက်','ဝါး/မျော','အုန်းဆံကြိုး','အထပ်သား','အိမ်ဆောက်သံ','ရုံးသုံးပစ္စည်း','အခြား'];
+function getProductCategories(){db.productCategories=Array.isArray(db.productCategories)&&db.productCategories.length?db.productCategories:DEFAULT_PRODUCT_CATEGORIES.slice();return db.productCategories;}
+function renderProductTypeFilter(){
+  const el=document.getElementById('productTypeFilter'); if(!el)return;
+  const current=el.value;
+  const cats=getProductCategories();
+  el.innerHTML='<option value="">အမျိုးအစားအားလုံး</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(cats.includes(current))el.value=current;
+}
+function filterProductTable(){
+  const name=(document.getElementById('productNameFilter')?.value||'').trim().toLowerCase();
+  const type=document.getElementById('productTypeFilter')?.value||'';
+  const rows=document.querySelectorAll('#products tr[data-product-row]');
+  rows.forEach(row=>{
+    const pn=(row.dataset.name||'').toLowerCase();
+    const pt=row.dataset.type||'';
+    row.style.display=(!name||pn.includes(name))&&(!type||pt===type)?'':'none';
+  });
+}
+function renderProductsTable(){
+  const productsEl=document.getElementById('products'); if(!productsEl)return;
+  productsEl.innerHTML=db.products.map((p,i)=>`<tr id="product-row-${i}" data-product-row="1" data-name="${esc(p.name)}" data-type="${esc(p.type||'')}">
+    <td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.type||'')}</td><td>${M(p.buy)}</td><td>${M(p.sell)}</td><td>${p.open}</td>
+    <td><button class="smallbtn" onclick="editProduct(${i})">✏️ Edit</button></td></tr>`).join('')||'<tr><td colspan="7">ကုန်ပစ္စည်း မရှိသေးပါ။</td></tr>';
+  renderProductTypeFilter();
+  filterProductTable();
+}
+
+function render(){
+  getProductCategories();
+  fillProducts();
+  fillProductNameList();
+
+  const productsEl=document.getElementById('products');
+  const stockEl=document.getElementById('stock');
+  const salesEl=document.getElementById('sales');
+  const carsEl=document.getElementById('cars');
+
+
+
+  renderProductsTable();
+
+  if(stockEl){
+    stockEl.innerHTML=db.products.map(p=>`<tr>
+      <td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.type||'-')}</td><td>${M(p.buy)}</td><td>${M(p.sell)}</td><td>${stockQty(p)}</td>
+    </tr>`).join('') || '<tr><td colspan="6">ကုန်ပစ္စည်း မရှိသေးပါ။</td></tr>';
+  }
+
+  if(salesEl){
+    salesEl.innerHTML=db.sales.slice().reverse().map((s,ri)=>{
+      const items=Array.isArray(s.items)?s.items:[{pid:s.pid,qty:s.qty}];
+      const names=items.map(x=>(db.products.find(p=>p.id===x.pid)?.name||s.name||x.pid)+' × '+x.qty).join('<br>');
+      const q=items.reduce((a,x)=>a+(+x.qty||0),0);
+      const idx=db.sales.length-1-ri;
+      return `<tr><td>${esc(s.date)}</td><td>${esc(s.buyer||'')}<br><small>${esc(s.id||'')}</small><br><small>Voucher: ${esc(s.voucherNo||'-')}</small></td><td>${names}</td><td>${q}</td><td>${esc(db.carNames[s.deliveryCar]||s.deliveryCar||'')}</td><td>${M(s.total)}</td><td>${M(s.paid)}</td><td>${M((s.total||0)-(s.paid||0))}</td><td><button class="smallbtn success" onclick="printVoucher('sale',${idx})">🖨️ Print</button><button class="smallbtn danger" onclick="deleteSale(${idx})">ဖျက်</button></td></tr>`;
+    }).join('') || '<tr><td colspan="9">ရောင်းစာရင်း မရှိသေးပါ။</td></tr>';
+  }
+
+  const t=today();
+  const todayOrders=db.orders.filter(o=>o.date===t);
+  const pending=db.orders.filter(o=>['New','Confirmed','Preparing','Packed'].includes(o.status));
+  const transit=db.orders.filter(o=>['Shipped','In Transit','Out for Delivery'].includes(o.status));
+  const overdue=db.orders.filter(isOverdue);
+  const delivered=db.orders.filter(o=>o.status==='Delivered');
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('dOrders',todayOrders.length); set('dPending',pending.length); set('dTransit',transit.length); set('dOverdue',overdue.length); set('dDelivered',delivered.length);
+
+  const daySales=db.sales.filter(s=>s.date===t).reduce((a,s)=>a+(+s.total||0),0);
+  const orderSales=db.orders.filter(o=>o.date===t).reduce((a,o)=>a+(+o.total||0),0);
+  set('salesT',M(daySales+orderSales));
+  set('recvT',M(db.orders.reduce((a,o)=>a+(+o.balance||0),0)+db.sales.reduce((a,s)=>a+((+s.total||0)-(+s.paid||0)),0)));
+  set('carT',M(db.cars.reduce((a,c)=>a+(+c.inc||0)-(+c.ex||0)-(+c.sal||0),0)));
+
+  const urgentEl=document.getElementById('urgentOrders');
+  if(urgentEl){
+    urgentEl.innerHTML=overdue.concat(db.orders.filter(o=>o.status!=='Delivered'&&o.expected===t)).slice(0,20).map(o=>`<tr class="overdue"><td>${esc(o.id)}</td><td>${esc(o.customer)}</td><td>${Array.isArray(o.items)?o.items.map(x=>(db.products.find(p=>p.id===x.pid)?.name||x.pid)+' × '+x.qty).join(', '):esc(o.product)+' × '+o.qty}</td><td>${esc(o.expected)}</td><td>${esc(o.status)}</td></tr>`).join('')||'<tr><td colspan="5">အရေးပေါ် Order မရှိပါ။</td></tr>';
+  }
+
+  renderOrders();
+  renderCustomers();
+  renderCarNames();
+  const health=document.getElementById('dataHealth'); if(health) health.textContent=`✅ Data OK — Products ${db.products.length} | Orders ${db.orders.length} | Sales ${db.sales.length} | Cars ${db.carList.length}`;
+
+  if(carsEl){
+    carsEl.innerHTML=db.carList.map(id=>{
+      const a=db.cars.filter(c=>c.id===id);
+      const carOrders=db.orders.filter(o=>o.deliveryCar===id);
+      const carSales=db.sales.filter(s=>s.deliveryCar===id);
+      const orderCount=carOrders.length;
+      const saleCount=carSales.length;
+      const totalTrips=orderCount+saleCount;
+      const i=a.reduce((x,c)=>x+(+c.inc||0),0), e=a.reduce((x,c)=>x+(+c.ex||0),0), sal=a.reduce((x,c)=>x+(+c.sal||0),0);
+      const orderDetails=carOrders.length?carOrders.map(o=>`<div style="border:1px solid #d9e2ec;border-radius:8px;padding:8px;margin:4px 0;background:#f8fafc;white-space:normal;min-width:420px">
+        <b>📦 Order — ${esc(o.id||'Order')}</b> — ${esc(o.date||'')}<br>
+        <span>📍 <b>Location:</b> ${esc(o.address||'-')}</span><br>
+        <span>👤 <b>Customer:</b> ${esc(o.customer||'-')}</span><br>
+        <span>📝 <b>Note:</b> ${esc(o.note||'-')}</span>
+        <button type="button" class="smallbtn success" onclick="editCarOrderNote(${db.orders.indexOf(o)})">✏️ Note ပြင်ရန်</button>
+      </div>`).join(''):'';
+      const saleDetails=carSales.length?carSales.map(s=>`<div style="border:1px solid #cfe5d7;border-radius:8px;padding:8px;margin:4px 0;background:#f4fbf6;white-space:normal;min-width:420px">
+        <b>🛒 ရောင်းစာရင်း</b> — ${esc(s.date||'')}<br>
+        <span>📍 <b>Location:</b> ${esc(s.address||'-')}</span><br>
+        <span>👤 <b>Customer:</b> ${esc(s.buyer||'-')}</span><br>
+        <span>📝 <b>Note:</b> ${esc(s.note||'-')}</span>
+        <button type="button" class="smallbtn success" onclick="editCarSaleNote(${db.sales.indexOf(s)})">✏️ Note ပြင်ရန်</button>
+      </div>`).join(''):'';
+      const details=(orderDetails||saleDetails)?orderDetails+saleDetails:'<span style="color:#777">ဒီကားအတွက် Order / ရောင်းစာရင်း မရှိသေးပါ။</span>';
+      return `<tr><td>${esc(db.carNames[id]||id)}</td><td><b>${totalTrips}</b> ခေါက်<br><small>Order ${orderCount} | ရောင်း ${saleCount}</small></td><td>${M(i)}</td><td>${M(e)}</td><td>${M(sal)}</td><td>${M(i-e-sal)}</td><td style="white-space:normal">${details}</td></tr>`;
+    }).join('') || '<tr><td colspan="7">ကားစာရင်း မရှိသေးပါ။</td></tr>';
+  }
+}
+
+function editProduct(i){
+ const p=db.products[i]; if(!p)return;
+ const row=document.getElementById('product-row-'+i); if(!row)return;
+ row.innerHTML=`<td><input id="epid-${i}" value="${esc(p.id)}" style="width:90px"></td>
+ <td><input id="epname-${i}" list="productNameList" value="${esc(p.name)}" style="width:150px"></td>
+ <td><select id="eptype-${i}"><option value="">အမျိုးအစား</option><option>အစားအသောက်</option><option>အဝတ်အစား</option><option>အိမ်သုံးပစ္စည်း</option><option>အီလက်ထရောနစ်</option><option>အလှကုန်</option><option>ဆောက်လုပ်ရေးပစ္စည်း</option><option>Cement</option><option>အုတ်/သဲ/ကျောက်</option><option>ဝါး/မျော</option><option>အုန်းဆံကြိုး</option><option>အထပ်သား</option><option>အိမ်ဆောက်သံ</option><option>ရုံးသုံးပစ္စည်း</option><option>အခြား</option></select></td>
+ <td><input id="epbuy-${i}" type="number" value="${p.buy||0}" style="width:100px"></td>
+ <td><input id="epsell-${i}" type="number" value="${p.sell||0}" style="width:100px"></td>
+ <td><input id="epopen-${i}" type="number" value="${p.open||0}" style="width:90px"></td>
+ <td><button class="smallbtn success" onclick="saveProductEdit(${i})">💾 သိမ်း</button><button class="smallbtn" onclick="render()">✖ မလုပ်</button></td>`;
+ document.getElementById('eptype-'+i).value=p.type||'';
+}
+function saveProductEdit(i){
+ const p=db.products[i]; if(!p)return;
+ const id=document.getElementById('epid-'+i)?.value.trim();
+ const name=document.getElementById('epname-'+i)?.value.trim();
+ const type=document.getElementById('eptype-'+i)?.value.trim()||'';
+ const buy=Number(document.getElementById('epbuy-'+i)?.value)||0;
+ const sell=Number(document.getElementById('epsell-'+i)?.value)||0;
+ const open=Number(document.getElementById('epopen-'+i)?.value)||0;
+ if(!id||!name)return alert('Product ID နှင့် ပစ္စည်းအမည် ထည့်ပါ။');
+ if(db.products.some((x,j)=>j!==i && String(x.id).toLowerCase()===id.toLowerCase()))return alert('ဒီ Product ID ရှိပြီးသားပါ။');
+ const oldId=p.id; p.id=id; p.name=name; p.type=type; p.buy=buy; p.sell=sell; p.open=open;
+ // Update references in existing sales/orders when Product ID changes
+ if(oldId!==id){
+   db.sales.forEach(x=>{if(x.pid===oldId)x.pid=id;if(Array.isArray(x.items))x.items.forEach(it=>{if(it.pid===oldId)it.pid=id;});});
+   db.orders.forEach(x=>{if(x.pid===oldId)x.pid=id;if(Array.isArray(x.items))x.items.forEach(it=>{if(it.pid===oldId)it.pid=id;});});
+ }
+ save();
+ alert('ကုန်ပစ္စည်းကို ပြင်ပြီး သိမ်းပြီးပါပြီ။');
+}
+
+function report(){
+ let typ=period.value,d=rdate.value||today(),y=String(ryear.value);
+ let ss=db.sales.filter(s=>typ==='day'?s.date===d:typ==='month'?s.date.slice(0,7)===d.slice(0,7):s.date.slice(0,4)===y);
+ let oo=db.orders.filter(o=>typ==='day'?o.date===d:typ==='month'?o.date.slice(0,7)===d.slice(0,7):o.date.slice(0,4)===y);
+ let cc=db.cars.filter(c=>typ==='day'?c.date===d:typ==='month'?c.date.slice(0,7)===d.slice(0,7):c.date.slice(0,4)===y);
+ reportout.innerHTML=`<h3>Sales: ${M(ss.reduce((a,s)=>a+s.total,0)+oo.reduce((a,o)=>a+o.total,0))}</h3>
+ <p>Orders: ${oo.length}</p><p>Delivered: ${oo.filter(o=>o.status==='Delivered').length}</p>
+ <p>ရရန်ရှိ: ${M(oo.reduce((a,o)=>a+o.balance,0)+ss.reduce((a,s)=>a+s.total-s.paid,0))}</p>
+ <p>ကား Net: ${M(cc.reduce((a,c)=>a+c.inc-c.ex-c.sal,0))}</p>`;
+}
+function backup(){let b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='complete-business-order-tracking-backup.json';a.click();}
+function restore(e){let r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);db.products ||= [];db.sales ||= [];db.cars ||= [];db.orders ||= [];save();}catch(err){alert('Backup file မမှန်ပါ။')}};r.readAsText(e.target.files[0]);}
+function wipe(){if(confirm('စာရင်းအားလုံးဖျက်မလား?')){db={products:[],sales:[],cars:[],orders:[]};save();}}
+odate.value=sdate.value=cdate.value=rdate.value=today(); expected.value=today(); oid.value=nextOrderId(); ryear.value=new Date().getFullYear();
+// ===== v16 DATA-SAFE OVERRIDES =====
+function validateItems(items, kind){
+  if(!Array.isArray(items)||!items.length) return 'အနည်းဆုံး ပစ္စည်း ၁ မျိုးထည့်ပါ။';
+  const pids=new Set(db.products.map(p=>p.id));
+  for(const x of items){
+    if(!pids.has(x.pid)) return 'မရှိတော့သော ကုန်ပစ္စည်းတစ်ခု ရွေးထားပါသည်။';
+    const q=safeNumber(x.qty), price=safeNumber(x.price);
+    if(q<=0) return 'Qty သည် 0 ထက်ကြီးရပါမည်။';
+    if(price<0) return 'ဈေးနှုန်းသည် အနုတ်မဖြစ်ရပါ။';
+    if(kind==='order' && safeNumber(x.discount)>q*price) return 'Discount သည် ပစ္စည်းတန်ဖိုးထက် မကျော်ရပါ။';
+  }
+  return '';
+}
+function nextUniqueOrderId(){let id=nextOrderId(),n=1;while(db.orders.some(o=>o.id===id)){id=nextOrderId()+'-'+n++;}return id;}
+function addOrder(){
+  const buyer=cleanText(document.getElementById('obuyer')?.value); if(!buyer)return alert('Customer အမည်ထည့်ပါ။');
+  const err=validateItems(orderItems,'order'); if(err)return alert(err);
+  const car=cleanText(document.getElementById('odeliveryCar')?.value); if(car&&!db.carList.includes(car))return alert('ရွေးထားသောကား မရှိတော့ပါ။');
+  const fee=Math.max(0,safeNumber(document.getElementById('odeliveryFee')?.value));
+  const labor=Math.max(0,safeNumber(document.getElementById('olaborFee')?.value));
+  let itemsTotal=orderItems.reduce((a,x)=>a+Math.max(0,safeNumber(x.qty)*safeNumber(x.price)-safeNumber(x.discount)),0);
+  const total=itemsTotal+fee+labor; let paid=safeNumber(document.getElementById('opaid')?.value); const type=document.getElementById('opay')?.value||'cash';
+  if(type==='cash')paid=total; if(type==='credit')paid=0; if(paid<0||paid>total)return alert('ပေးချေငွေသည် စုစုပေါင်းထက် မကျော်ရပါ။');
+  const id=nextUniqueOrderId(); const voucherNo=cleanText(document.getElementById('ovoucher')?.value); const items=orderItems.map(x=>({pid:x.pid,productName:db.products.find(p=>p.id===x.pid)?.name||'',qty:safeNumber(x.qty),variant:cleanText(x.variant),price:safeNumber(x.price),discount:safeNumber(x.discount)}));
+  db.orders.push({id,voucherNo,date:cleanText(document.getElementById('odate')?.value)||today(),customer:buyer,phone:cleanText(document.getElementById('ophone')?.value),address:cleanText(document.getElementById('oaddress')?.value),items,pid:items[0].pid,product:items[0].productName,qty:items.reduce((a,x)=>a+x.qty,0),variant:items[0].variant||'',total,deliveryFee:fee,laborFee:labor,paid,balance:total-paid,expected:cleanText(document.getElementById('expected')?.value)||today(),deliveryCar:car,courier:cleanText(document.getElementById('ocourier')?.value),tracking:cleanText(document.getElementById('otracking')?.value),status:type==='cash'?'Confirmed':'New',note:cleanText(document.getElementById('onote')?.value),packed:false,shippedDate:'',deliveredDate:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  save(); alert('Order သိမ်းပြီးပါပြီ — '+id); clearOrder();
+}
+function addSale(){
+  const buyerName=cleanText(document.getElementById('buyer')?.value); if(!buyerName)return alert('ဝယ်သူ / Customer အမည်ထည့်ပါ။');
+  const err=validateItems(saleItems,'sale'); if(err)return alert(err);
+  const car=cleanText(document.getElementById('sdeliveryCar')?.value); if(car&&!db.carList.includes(car))return alert('ရွေးထားသောကား မရှိတော့ပါ။');
+  const fee=Math.max(0,safeNumber(document.getElementById('sdeliveryFee')?.value)); const labor=Math.max(0,safeNumber(document.getElementById('slaborFee')?.value));
+  const total=saleItems.reduce((a,x)=>a+safeNumber(x.qty)*safeNumber(x.price),0)+fee+labor; let pa=safeNumber(document.getElementById('paid')?.value); const type=document.getElementById('pay')?.value||'cash';
+  if(type==='cash')pa=total; if(type==='credit')pa=0; if(pa<0||pa>total)return alert('ပေးချေငွေသည် စုစုပေါင်းထက် မကျော်ရပါ။');
+  const id=makeId('SAL'); const voucherNo=cleanText(document.getElementById('svoucher')?.value); const items=saleItems.map(x=>({pid:x.pid,productName:db.products.find(p=>p.id===x.pid)?.name||'',qty:safeNumber(x.qty),price:safeNumber(x.price)}));
+  db.sales.push({id,voucherNo,date:cleanText(document.getElementById('sdate')?.value)||today(),buyer:buyerName,deliveryCar:car,address:cleanText(document.getElementById('saddress')?.value),note:cleanText(document.getElementById('snote')?.value),paymentType:type,items,deliveryFee:fee,laborFee:labor,total,paid:pa,credit:total-pa,pid:items[0].pid,name:items[0].productName,qty:items.reduce((a,x)=>a+x.qty,0),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  save(); clearSaleForm(); alert('ရောင်းစာရင်း သိမ်းပြီးပါပြီ — '+id);
+}
+function repairData(){
+  const before=JSON.stringify(db); db=normalizeDB(db); const after=JSON.stringify(db); localStorage.setItem(K+'_lastgood',before); localStorage.setItem(K,after); render();
+  const health=document.getElementById('dataHealth'); if(health)health.textContent='✅ Data စစ်ဆေးပြီးပါပြီ။ Structure မှန်ကန်နေပါသည်။'; alert(before===after?'Data အမှားမတွေ့ပါ။':'Data ကို စစ်ဆေးပြီး လိုအပ်သော field များကို ပြင်ဆင်ပြီးပါပြီ။');
+}
+function backup(){const b=new Blob([JSON.stringify(normalizeDB(db),null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='Toe_Pwar_Gyi_backup_'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+function restore(e){const file=e?.target?.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const imported=normalizeDB(JSON.parse(r.result));if(!confirm('Backup data ကို လက်ရှိ data အပေါ် အစားထိုးမလား?'))return;localStorage.setItem(K+'_lastgood',JSON.stringify(db));db=imported;save();alert('Backup data ပြန်ထည့်ပြီးပါပြီ။');}catch(err){alert('Backup file မမှန်ပါ သို့မဟုတ် ဖတ်မရပါ။');}finally{e.target.value='';}};r.readAsText(file);}
+function wipe(){if(confirm('စာရင်းအားလုံးဖျက်မလား? ဒီလုပ်ဆောင်ချက်မလုပ်မီ Backup JSON လုပ်ထားပါ။')){localStorage.setItem(K+'_lastgood',JSON.stringify(db));db=normalizeDB(EMPTY_DB);save();}}
+
+function printVoucher(kind,index){
+  const data=kind==='order'?db.orders[index]:db.sales[index]; if(!data)return;
+  const items=Array.isArray(data.items)?data.items:[];
+  const names=items.map(x=>{const p=db.products.find(p=>p.id===x.pid);return {name:p?.name||x.productName||x.pid||'-',qty:safeNumber(x.qty),price:safeNumber(x.price),total:Math.max(0,safeNumber(x.qty)*safeNumber(x.price)-safeNumber(x.discount))};});
+  const total=safeNumber(data.total), paid=safeNumber(data.paid), balance=Math.max(0,total-paid);
+  const customer=kind==='order'?data.customer:data.buyer;
+  const html=`<div class="voucher-print"><h2>Toe Pwar Gyi</h2><div class="center">${kind==='order'?'ORDER VOUCHER':'SALES VOUCHER'}</div><div class="line"></div><div>Voucher No: <b>${esc(data.voucherNo||'-')}</b></div><div>ID: ${esc(data.id||'-')}</div><div>Date: ${esc(data.date||'-')}</div><div>Customer: ${esc(customer||'-')}</div><div class="line"></div><table><thead><tr><th>Item</th><th>Qty</th><th class="right">Amount</th></tr></thead><tbody>${names.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.qty}</td><td class="right">${M(x.total)}</td></tr>`).join('')}</tbody></table><div class="line"></div><div class="right"><b>Total: ${M(total)} Ks</b><br>Paid: ${M(paid)} Ks<br>Balance: ${M(balance)} Ks</div>${data.deliveryFee?`<div>Delivery: ${M(data.deliveryFee)} Ks</div>`:''}${data.laborFee?`<div>Labor: ${M(data.laborFee)} Ks</div>`:''}<div class="line"></div><div>Note: ${esc(data.note||'-')}</div><div class="center" style="margin-top:8px">Thank you</div></div>`;
+  const area=document.getElementById('printArea'); area.innerHTML=html; window.print(); setTimeout(()=>area.innerHTML='',500);
+}
+if(!orderItems.length && db.products.length) addOrderItem();
+render();renderSaleItems();renderOrderItems();renderCarNames();
+
+// ===== FIREBASE CLOUD BUSINESS DATABASE =====
+function setCloudAuthStatus(msg,cls=''){const e=document.getElementById('cloudAuthStatus');if(e){e.textContent=msg;e.className=cls;}}
+function initCloudFirebase(){
+ try{
+  if(cloudApp)return;
+  cloudApp=firebase.initializeApp(LIVE_FIREBASE_CONFIG,'cloudBusinessApp');
+  cloudAuth=firebase.auth(cloudApp); cloudDB=firebase.firestore(cloudApp);
+  cloudAuth.onAuthStateChanged(async user=>{
+   cloudUser=user||null; cloudReady=!!user;
+   if(user){setCloudAuthStatus('🟢 Signed in: '+user.email,'online'); await cloudLoad();}
+   else setCloudAuthStatus('🔴 Not signed in','offline');
+  });
+ }catch(e){setCloudAuthStatus('Firebase init error: '+e.message,'offline');}
+}
+async function cloudLogin(){
+ initCloudFirebase();
+ const email=(document.getElementById('cloudEmail')?.value||'').trim();
+ const pass=document.getElementById('cloudPassword')?.value||'';
+ if(!email||!pass)return alert('Email နှင့် Password ထည့်ပါ။');
+ try{await cloudAuth.signInWithEmailAndPassword(email,pass);}catch(e){alert('Login failed: '+e.message);}
+}
+async function cloudLogout(){try{if(cloudAuth)await cloudAuth.signOut();}catch(e){alert(e.message);}}
+async function cloudLoad(){
+ if(!cloudDB||!cloudUser)return;
+ try{
+  const snap=await cloudDB.collection('businessData').doc('main').get();
+  if(snap.exists && snap.data()?.db){db=normalizeDB(snap.data().db);localStorage.setItem(K,JSON.stringify(db));render();renderSaleItems();renderOrderItems();renderCarNames();}
+  else await cloudSave();
+ }catch(e){setCloudAuthStatus('Cloud read error: '+e.message,'offline');}
+}
+function scheduleCloudSave(){if(!cloudUser||!cloudDB)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(cloudSave,800);}
+async function cloudSave(){
+ if(!cloudDB||!cloudUser)return;
+ try{await cloudDB.collection('businessData').doc('main').set({db:normalizeDB(db),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid},{merge:true});}
+ catch(e){console.warn('Cloud save error',e);}
+}
+async function cloudSyncNow(){if(!cloudUser)return alert('အရင် Firebase Login ဝင်ပါ။');await cloudSave();alert('☁️ Cloud sync ပြီးပါပြီ။');}
+// ===== LIVE VEHICLES MAP + FIREBASE REALTIME DATABASE =====
+const LIVE_FIREBASE_CONFIG={apiKey:'AIzaSyC9eejTNPozg5Zb0skbrFyEBpvCVC1R3gI',authDomain:'toe-pwar-gyi-business-app.firebaseapp.com',projectId:'toe-pwar-gyi-business-app',storageBucket:'toe-pwar-gyi-business-app.firebasestorage.app',messagingSenderId:'1057078149836',appId:'1:1057078149836:web:40972f0843cec556803869',measurementId:'G-2DLK4FD7GP'};
+let cloudApp=null,cloudAuth=null,cloudDB=null,cloudUser=null,cloudReady=false,cloudSaveTimer=null;
+let liveFirebaseApp=null,liveRTDB=null,liveGeoWatch=null,liveMap=null,liveMarkers={},liveLocationsRef=null,liveConnected=false;
+function setLiveStatus(msg,cls=''){const e=document.getElementById('firebaseStatus');if(e)e.innerHTML=msg; if(cls)e.className='live-status '+cls;}
+function initLiveMap(){
+  if(!window.L||liveMap)return;
+  liveMap=L.map('liveMap').setView([16.8409,96.1735],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(liveMap);
+}
+function renderLiveVehicleSelect(){
+ const sel=document.getElementById('liveVehicleSelect'); if(!sel)return;
+ const ids=Array.isArray(db.carList)?db.carList:[];
+ sel.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(db.carNames[id]||id)}</option>`).join('');
+}
+function connectLiveFirebase(){
+ try{
+  const url=(document.getElementById('rtdbUrl')?.value||'').trim();
+  if(!url)return alert('Firebase Realtime Database URL ထည့်ပါ။ Firebase Console > Realtime Database > Data မှ URL ကို copy လုပ်ပါ။');
+  localStorage.setItem('tpg_rtdb_url',url);
+  if(liveFirebaseApp){ try{liveFirebaseApp.delete();}catch(e){} liveFirebaseApp=null; }
+  const cfg=Object.assign({},LIVE_FIREBASE_CONFIG,{databaseURL:url});
+  liveFirebaseApp=firebase.initializeApp(cfg,'liveTrackingApp');
+  liveRTDB=firebase.database(liveFirebaseApp);
+  liveConnected=true; setLiveStatus('Firebase: 🟢 ချိတ်ဆက်ပြီးပါပြီ','online');
+  liveLocationsRef=liveRTDB.ref('vehicleLocations');
+  liveLocationsRef.on('value',snap=>renderLiveLocations(snap.val()||{}),err=>setLiveStatus('Firebase Error: '+esc(err.message),'offline'));
+  initLiveMap(); renderLiveVehicleSelect();
+ }catch(e){liveConnected=false;setLiveStatus('Firebase Error: '+esc(e.message),'offline');alert('Firebase ချိတ်ရာတွင် ပြဿနာရှိပါသည်။ URL နှင့် Realtime Database ကို စစ်ပါ။');}
+}
+function markerPopup(id,v){
+ const name=db.carNames[id]||id;
+ const t=v.updatedAt?new Date(v.updatedAt).toLocaleString():'-';
+ return `<b>🚗 ${esc(name)}</b><br>Driver: ${esc(v.driver||'-')}<br>Order: ${esc(v.orderId||'-')}<br>Destination: ${esc(v.destination||'-')}<br>Speed: ${safeNumber(v.speed).toFixed(1)} km/h<br>Last update: ${esc(t)}`;
+}
+function renderLiveLocations(data){
+ initLiveMap(); const ids=Object.keys(data||{});
+ const list=document.getElementById('liveVehicleList');
+ if(list) list.innerHTML=ids.length?ids.map(id=>{const v=data[id]||{},age=Date.now()-(Number(v.updatedAt)||0),on=age<120000;return `<div class="vehicle-card" onclick="focusVehicle('${esc(id)}')"><b>🚗 ${esc(db.carNames[id]||id)}</b> — ${on?'<span class="online">🟢 Online</span>':'<span class="offline">🔴 Offline</span>'}<br>Driver: ${esc(v.driver||'-')} | Order: ${esc(v.orderId||'-')}<br>📍 ${safeNumber(v.lat).toFixed(6)}, ${safeNumber(v.lng).toFixed(6)}<br><small>${esc(v.destination||'')} | ${v.updatedAt?new Date(v.updatedAt).toLocaleTimeString():'-'}</small></div>`}).join(''):'ကား GPS data မရှိသေးပါ။';
+ ids.forEach(id=>{
+  const v=data[id]; if(!v||!Number.isFinite(Number(v.lat))||!Number.isFinite(Number(v.lng)))return;
+  const pos=[Number(v.lat),Number(v.lng)];
+  if(!liveMarkers[id]) liveMarkers[id]=L.marker(pos).addTo(liveMap);
+  liveMarkers[id].setLatLng(pos).bindPopup(markerPopup(id,v));
+ });
+ Object.keys(liveMarkers).forEach(id=>{if(!data[id]){liveMap.removeLayer(liveMarkers[id]);delete liveMarkers[id];}});
+}
+let liveLastData={};
+function focusVehicle(id){const m=liveMarkers[id];if(m){liveMap.setView(m.getLatLng(),16);m.openPopup();}}
+async function startVehicleTracking(){
+ if(!liveConnected)return alert('အရင် Firebase ကို ချိတ်ပါ။');
+ if(!navigator.geolocation)return alert('ဒီ browser/device မှာ GPS မရနိုင်ပါ။');
+ const id=document.getElementById('liveVehicleSelect')?.value;if(!id)return alert('ကားရွေးပါ။');
+ const driver=document.getElementById('liveDriverName')?.value.trim()||'Driver';
+ const orderId=document.getElementById('liveOrderId')?.value.trim()||'';
+ const destination=document.getElementById('liveDestination')?.value.trim()||'';
+ if(liveGeoWatch!==null)navigator.geolocation.clearWatch(liveGeoWatch);
+ document.getElementById('trackingStatus').innerHTML='Tracking: <span class="tracking">🟢 GPS စောင့်ကြည့်နေသည်...</span>';
+ liveGeoWatch=navigator.geolocation.watchPosition(pos=>{
+   const c=pos.coords, data={lat:c.latitude,lng:c.longitude,speed:Number.isFinite(c.speed)?Math.max(0,c.speed*3.6):0,heading:Number.isFinite(c.heading)?c.heading:0,driver,orderId,destination,online:true,updatedAt:Date.now()};
+   liveRTDB.ref('vehicleLocations/'+id).set(data).catch(e=>{document.getElementById('trackingStatus').textContent='Firebase write error: '+e.message;});
+   if(liveMap){liveMap.setView([c.latitude,c.longitude],16);}
+ },err=>{document.getElementById('trackingStatus').innerHTML='GPS Error: '+esc(err.message);},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+}
+function stopVehicleTracking(){
+ if(liveGeoWatch!==null){navigator.geolocation.clearWatch(liveGeoWatch);liveGeoWatch=null;}
+ const id=document.getElementById('liveVehicleSelect')?.value;
+ if(liveConnected&&id)liveRTDB.ref('vehicleLocations/'+id+'/online').set(false).catch(()=>{});
+ const e=document.getElementById('trackingStatus');if(e)e.textContent='Tracking: OFF';
+}
+function loadLiveSettings(){const u=localStorage.getItem('tpg_rtdb_url');if(u){const e=document.getElementById('rtdbUrl');if(e)e.value=u;}renderLiveVehicleSelect();}
+setTimeout(loadLiveSettings,300);
+setTimeout(initCloudFirebase,500);
+</script>
+
+<script>
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;const b=document.getElementById('installBar');if(b)b.style.display='block';});
+document.addEventListener('click',async e=>{if(e.target&&e.target.id==='installAppBtn'&&deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;const b=document.getElementById('installBar');if(b)b.style.display='none';}});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>

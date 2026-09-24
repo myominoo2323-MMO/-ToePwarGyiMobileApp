@@ -1,0 +1,1 @@
+Open this project in Android Studio and Build > Build APK(s). For Play Store use Build > Generate Signed Bundle / APK > Android App Bundle.
